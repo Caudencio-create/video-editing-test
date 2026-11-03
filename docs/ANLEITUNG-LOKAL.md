@@ -14,11 +14,22 @@ Luciano ist kein Entwickler. Du erledigst alles selbst und fragst ihn nur nach I
 ## 1. Einmal einrichten (ca. 5 Minuten)
 
 ```powershell
+cd C:\Users\User
 git clone https://github.com/Caudencio-create/video-editing-test
 cd video-editing-test
-python -m pip install -r requirements.txt
+uv venv --python 3.11 .venv
+uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 ffmpeg -version
 ```
+
+Danach alle Befehle mit `.venv\Scripts\python.exe` statt `python` ausführen.
+
+- **Kurzer Pfad**: Windows erlaubt hier höchstens 260 Zeichen pro Pfad (Langpfade sind aus). In einem
+  tief verschachtelten Ordner scheitert schon `git clone`, später das Rendern
+  (`arbeitsordner\render\…\schriften\…`). Deshalb direkt unter `C:\Users\User` klonen.
+- **Eigene Umgebung (.venv)**: Auf diesem Rechner ist global OpenCV 5 installiert, dem die
+  Gesichtserkennung fehlt (`CascadeClassifier`). Die `.venv` bringt OpenCV 4 mit, ohne andere
+  Projekte zu stören. Ohne `uv`: `python -m venv .venv` und `.venv\Scripts\python.exe -m pip install -r requirements.txt`.
 
 - Fehlt ffmpeg: `winget install Gyan.FFmpeg`, danach ein neues Terminal öffnen. Auf diesem Rechner
   lief im August schon eine Strecke mit ffmpeg und faster-whisper (Creative-Showcase,
@@ -47,9 +58,15 @@ sucht die Zitate und schreibt `ausgabe/E12_3Stimmen-Hintergrund_Schnittliste.md`
 
 - Treffer je Clip mindestens 85 %. Darunter: Wortlaut im Rezept an das Transkript in
   `arbeitsordner/transkripte/<Name>.txt` angleichen. Das Transkript ist die Wahrheit, nicht das Rezept.
-- Zeile „Im Video erkannt“ mit der Zeile „Untertitel“ vergleichen. Weicht ein Wort ab (bekannt:
-  „ergreifen“ bei Christina Brückner, vielleicht „begreifen“), das Rezept korrigieren.
-  Untertitel müssen wiedergeben, was gesagt wird.
+- Zeile „Im Video erkannt“ mit der Zeile „Untertitel“ vergleichen. Weicht ein Wort ab, das Rezept
+  korrigieren. Untertitel müssen wiedergeben, was gesagt wird. Steht unter „Herausgeschnitten“ ein
+  Wort, das kein Füllwort und kein Fehlstart ist (am 03.11.: „noch“ bei Christine Reimer), gehört
+  es ins Zitat.
+- Schnittkanten nicht blind übernehmen: Whisper setzt Wortgrenzen nur auf etwa 0,1 s genau und
+  dehnt Wörter über Pausen. Am 03.11. mussten bei E12 elf von zwölf Kanten nachgesetzt werden
+  (Silbenreste wie „-te“ von „konnte“, abgeschnittenes „kann“, Atemzug vor Utes „Mein Name“). Kanten am Pegel messen und als feste `teile` ins
+  Rezept schreiben, **zusätzlich** zum `zitat` (dann kommen die Untertitel-Wörter weiter aus dem
+  Transkript). Die Schnittliste zeigt den ursprünglichen Vorschlag zum Vergleich.
 
 Dann rendern:
 
@@ -66,8 +83,8 @@ plus je ein `_Vorschau.png`. Dauer auf einem normalen Rechner ca. 1–2 min pro 
 
 - [ ] Gesicht im Bild, nicht angeschnitten (sonst im Rezept beim Clip `"fokus": [x, y]` setzen,
       z. B. `[0.42, 0.35]` = Gesicht bei 42 % der Breite, 35 % der Höhe)
-- [ ] Schnitte hörbar sauber: kein abgehacktes Wort, kein Atemgeräusch-Rest. Sonst im Rezept statt
-      `zitat` feste `teile` angeben (Zeiten aus der Schnittliste, leicht verschieben)
+- [ ] Schnitte hörbar sauber: kein abgehacktes Wort, kein Atemgeräusch-Rest. Sonst im Rezept
+      zusätzlich zum `zitat` feste `teile` angeben (Zeiten aus der Schnittliste, leicht verschieben)
 - [ ] Ute: harter Schnitt nach „Hausgeräte.“, danach kein Wort mehr hörbar
 - [ ] Untertitel = Gesprochenes, keine Tippfehler, Umlaute korrekt
 - [ ] Hook und Namen gut lesbar, nichts in den unteren 35 % (9:16)

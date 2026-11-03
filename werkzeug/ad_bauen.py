@@ -144,7 +144,7 @@ def planen(rezept: dict, rezept_pfad: Path) -> dict:
         if not video.is_file():
             sys.exit(f"Clip {nr}: Datei nicht gefunden: {video}")
         technik = vermessen(video)
-        if eintrag.get("teile"):
+        if eintrag.get("teile") and not eintrag.get("zitat"):
             teile = eintrag["teile"]
             woerter = eintrag.get("woerter", [])
             info = {"uebereinstimmung": None, "gefunden": "(feste Zeiten aus dem Rezept)", "geschnitten": ""}
@@ -157,6 +157,10 @@ def planen(rezept: dict, rezept_pfad: Path) -> dict:
             transkript = json.loads(tpfad.read_text(encoding="utf-8"))
             info = finde_zitat(transkript, eintrag["zitat"])
             teile, woerter = info["teile"], info["woerter"]
+            if eintrag.get("teile"):
+                # Schnittkanten von Hand (am Pegel gemessen), Wörter und Treffer weiter aus dem Transkript
+                info["vorschlag"] = teile
+                teile = eintrag["teile"]
         fokus = eintrag.get("fokus")
         if fokus is None:
             mitte = [a + (b - a) * f for a, b in teile[:1] for f in (0.2, 0.5, 0.8)]
@@ -178,13 +182,15 @@ def planen(rezept: dict, rezept_pfad: Path) -> dict:
         clip["ende"] = t
         # Wort-Zeiten auf die Zeitachse legen
         clip["woerter_zeitachse"] = []
+        eigene = [s for s in segmente if s["clip"] is clip]
         for w in clip["woerter"]:
-            for seg in (s for s in segmente if s["clip"] is clip):
-                if seg["von"] - 0.15 <= w["von"] < seg["bis"]:
-                    von = seg["start"] + max(0.0, w["von"] - seg["von"])
-                    bis = seg["start"] + min(seg["bis"], w["bis"]) - seg["von"]
-                    clip["woerter_zeitachse"].append({"w": w["w"], "von": von, "bis": max(bis, von + 0.05)})
-                    break
+            seg = next((s for s in eigene if s["von"] - 0.15 <= w["von"] < s["bis"]), None)
+            if seg is None:
+                # Whisper-Zeit liegt außerhalb der Schnittkanten (Wort gedehnt): in den nächstgelegenen Teil legen
+                seg = min(eigene, key=lambda s: min(abs(w["von"] - s["von"]), abs(w["von"] - s["bis"])))
+            von = seg["start"] + min(max(0.0, w["von"] - seg["von"]), seg["bis"] - seg["von"] - 0.05)
+            bis = seg["start"] + min(seg["bis"], w["bis"]) - seg["von"]
+            clip["woerter_zeitachse"].append({"w": w["w"], "von": von, "bis": max(bis, von + 0.05)})
     return {"clips": clips, "segmente": segmente, "dauer_clips": t}
 
 
@@ -493,6 +499,9 @@ def schnittliste(plan: dict, rezept: dict, ziel: Path) -> None:
         zeilen.append(f"**Clip {c['nr']} – {c['name'] or c['video'].stem}**  ")
         zeilen.append(f"Untertitel: {' '.join(w['w'] for w in c['woerter'])}  ")
         zeilen.append(f"Im Video erkannt: {c['info']['gefunden']}  ")
+        if c["info"].get("vorschlag"):
+            vorschlag = ", ".join(f"{zeit(a)}–{zeit(b)}" for a, b in c["info"]["vorschlag"])
+            zeilen.append(f"Schnittkanten von Hand gesetzt (Vorschlag aus dem Transkript war {vorschlag})  ")
         if c["info"].get("geschnitten"):
             zeilen.append(f"Herausgeschnitten: {c['info']['geschnitten']}  ")
         zeilen.append("")

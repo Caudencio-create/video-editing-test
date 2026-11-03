@@ -24,7 +24,8 @@
   "clips": [
     {
       "datei": "14_Testimonials_Frankfurt_2026-07/Christine Reimer.mp4",
-      "zitat": "Da werden bestimmt nur ganz tolle Leute genommen und Heilpraktiker und Ärzte, aber doch nicht ich. Ich habe ja nicht so viel Ahnung vom Gesundheitswesen, aber ich habe es dann trotzdem gemacht.",
+      "zitat": "Da werden bestimmt nur ganz tolle Leute genommen und Heilpraktiker und Ärzte, aber doch nicht ich. Ich habe ja noch nicht so viel Ahnung vom Gesundheitswesen, aber ich habe es dann trotzdem gemacht.",
+      "teile": [[72.88, 82.93]],
       "name": "Christine Reimer",
       "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
       "rolle": "Der Zweifel – spricht den Einwand fast wörtlich aus"
@@ -32,14 +33,16 @@
     {
       "datei": "14_Testimonials_Frankfurt_2026-07/Kris Brückner.mp4",
       "zitat": "Als ich mit der Ausbildung angefangen habe, muss ich ehrlich sagen, war ich überfordert. … Und ich merke einfach jetzt während der Ausbildung, die ist in so gut verdaubaren Portionen für mich gestückelt, dass ich das unglaublich gut ergreifen kann.",
+      "teile": [[61.10, 65.20], [78.30, 82.12], [84.77, 88.58], [89.50, 93.24]],
       "name": "Christina Brückner",
       "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
       "rolle": "Ehrliches „überfordert“ und die Auflösung im selben Interview",
-      "pruefen": "Dateiname „Kris Brückner“, im Interview stellt sie sich als „Christina Brückner, 51“ vor. Wortlaut „ergreifen“ am Ton prüfen (evtl. „begreifen“). Das „…“ überspringt einen Satz über Fachbegriffe."
+      "pruefen": "Dateiname „Kris Brückner“, im Interview stellt sie sich als „Christina Brückner, 51“ vor. „ergreifen“ am 03.11. geprüft: large-v3-turbo und large-v3 hören beide „ergreifen“. Das „…“ überspringt einen Satz über Fachbegriffe. Fehlstart „die ist so gut,“ und eine Denkpause vor „gestückelt“ (1,1 s) sind herausgeschnitten."
     },
     {
       "datei": "14_Testimonials_Frankfurt_2026-07/Ute Völker.mp4",
-      "zitat": "Mein Name ist Ute. Ich bin 65 Jahre alt, verkaufe Küchen und Hausgeräte. … Es ist leichter, wie man denkt.",
+      "zitat": "Mein Name ist Ute. Ich bin 65 Jahre alt, verkaufe Küchen- und Hausgeräte. … Es ist leichter, wie man denkt.",
+      "teile": [[1.76, 8.24], [156.74, 159.25]],
       "name": "Ute Völker",
       "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
       "rolle": "Der Schluss: Beruf weit weg von Medizin, Alter der Zielgruppe",
