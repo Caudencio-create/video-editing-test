@@ -190,37 +190,55 @@ def planen(rezept: dict, rezept_pfad: Path) -> dict:
 
 # ---------------------------------------------------------------- Untertitel / Einblendungen
 
-def untertitel_bloecke(woerter: list[dict], max_zeichen: int, clip_ende: float) -> list[tuple[float, float, str]]:
-    """Untertitel in ruhige Blöcke teilen: erst an Satzzeichen, dann ausgewogen auf höchstens zwei Zeilen."""
-    def laenge(gruppe):
-        return len(" ".join(w["w"] for w in gruppe))
+def untertitel_bloecke(woerter: list[dict], textbreite, max_px: float,
+                       clip_ende: float) -> list[tuple[float, float, str]]:
+    """Untertitel in ruhige Blöcke teilen: erst an Satzzeichen, dann so, dass jeder Block in höchstens
+    zwei Zeilen passt. Gemessen wird in Pixeln mit der echten Schrift, nicht in Zeichen."""
+    def text(gruppe):
+        return " ".join(w["w"] for w in gruppe)
+
+    def zeilen(gruppe) -> list[str]:
+        """Beste Aufteilung auf eine oder zwei Zeilen (ausgewogen), None wenn es nicht passt."""
+        if textbreite(text(gruppe)) <= max_px:
+            return [text(gruppe)]
+        beste = None
+        for k in range(1, len(gruppe)):
+            links, rechts = text(gruppe[:k]), text(gruppe[k:])
+            breiter = max(textbreite(links), textbreite(rechts))
+            if breiter <= max_px and (beste is None or breiter < beste[0]):
+                beste = (breiter, [links, rechts])
+        return beste[1] if beste else None
 
     # 1. Phrasen an Satzzeichen
     phrasen, aktuell = [], []
     for w in woerter:
         aktuell.append(w)
-        if w["w"][-1:] in ".!?;:,–" and laenge(aktuell) >= 12:
+        if w["w"][-1:] in ".!?;:,–" and len(text(aktuell)) >= 12:
             phrasen.append(aktuell)
             aktuell = []
     if aktuell:
-        if phrasen and laenge(aktuell) < 10:      # kurzer Rest an die vorige Phrase hängen
+        if phrasen and len(text(aktuell)) < 10:      # kurzer Rest an die vorige Phrase hängen
             phrasen[-1] += aktuell
         else:
             phrasen.append(aktuell)
 
-    # 2. zu lange Phrasen in gleich lange Blöcke (je höchstens zwei Zeilen) teilen
+    # 2. jede Phrase in möglichst wenige, gleich lange Blöcke teilen, die je in zwei Zeilen passen
     bloecke = []
     for phrase in phrasen:
-        teile = max(1, -(-laenge(phrase) // (2 * max_zeichen)))
-        ziel = laenge(phrase) / teile
-        block = []
-        for w in phrase:
-            if block and laenge(block) >= ziel * 0.85 and len(bloecke) < 999 and teile > 1:
-                bloecke.append(block)
-                block = []
-                teile -= 1
-            block.append(w)
-        bloecke.append(block)
+        for anzahl in range(1, len(phrase) + 1):
+            ziel = len(text(phrase)) / anzahl
+            teile, block = [], []
+            for w in phrase:
+                if block and len(text(block + [w])) > ziel * 1.15 and len(teile) < anzahl - 1:
+                    teile.append(block)
+                    block = []
+                block.append(w)
+            teile.append(block)
+            if all(zeilen(t) for t in teile):
+                bloecke += teile
+                break
+        else:
+            bloecke += [[w] for w in phrase]
 
     ergebnis = []
     for i, block in enumerate(bloecke):
@@ -231,13 +249,7 @@ def untertitel_bloecke(woerter: list[dict], max_zeichen: int, clip_ende: float) 
             if naechster - bis < 0.6:
                 bis = naechster
         bis = min(max(bis, von + 0.7), clip_ende)
-        text = " ".join(w["w"] for w in block)
-        if len(text) > max_zeichen:            # auf zwei ausgewogene Zeilen verteilen
-            worte = text.split()
-            bester = min(range(1, len(worte)),
-                         key=lambda k: abs(len(" ".join(worte[:k])) - len(" ".join(worte[k:]))))
-            text = " ".join(worte[:bester]) + "\n" + " ".join(worte[bester:])
-        ergebnis.append((von, bis, text))
+        ergebnis.append((von, bis, "\n".join(zeilen(block) or [text(block)])))
     return ergebnis
 
 
@@ -272,9 +284,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         hook_ende = min(rezept["hook"].get("dauer", 3.0), plan["clips"][0]["ende"])
         zeilen.append(f"Dialogue: 2,{ass_zeit(0)},{ass_zeit(hook_ende)},Hook,,0,0,0,,"
                       f"{{\\fad(120,200)}}{ass_text(rezept['hook']['text'])}")
-    max_zeichen = 26 if B / H < 0.7 else 30
+    from PIL import ImageFont
+    ut_schrift = ImageFont.truetype(str(SCHRIFTEN / "Figtree-ExtraBold.ttf"), ut)
+    max_px = B - 2 * rand - 2 * int(ut * 0.22)
+
+    def textbreite(t: str) -> float:
+        return ut_schrift.getlength(t)
+
     for clip in plan["clips"]:
-        for von, bis, text in untertitel_bloecke(clip["woerter_zeitachse"], max_zeichen, clip["ende"]):
+        for von, bis, text in untertitel_bloecke(clip["woerter_zeitachse"], textbreite, max_px, clip["ende"]):
             zeilen.append(f"Dialogue: 1,{ass_zeit(von)},{ass_zeit(bis)},Untertitel,,0,0,0,,"
                           + ass_text(text).replace("\n", "\\N"))
         if clip["name"]:
