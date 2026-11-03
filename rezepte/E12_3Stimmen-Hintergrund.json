@@ -1,0 +1,70 @@
+{
+  "id": "E12",
+  "name": "3Stimmen-Hintergrund",
+  "titel": "Einwand „kein medizinischer Hintergrund“ – drei Teilnehmerinnen antworten",
+  "funnel": "evergreen",
+  "kampagne": "AYV-Ausbildung Direkt Evergreen (Ziel: kostenloses Beratungsgespräch)",
+  "meta_anzeigenname": "3010_HH_AYV-Direkt_E12_3Stimmen-Hintergrund_V1",
+  "passt_zu_static": "F9 „Stimme Ute“, F11",
+  "formate": [
+    "9x16",
+    "4x5"
+  ],
+  "fps": 24,
+  "quellordner": "D:/Meine Ablage/1-UNTERNEHMEN/Externe Projekte/Brandlift/Projekte/Video-Assets Ausbildung (Stand 2026-11-02)",
+  "transkriptordner": "arbeitsordner/transkripte",
+  "hook": {
+    "varianten": [
+      "Ohne medizinischen Hintergrund?",
+      "Weder Ärztin noch Heilpraktikerin?",
+      "Braucht man dafür ein Medizinstudium?"
+    ],
+    "dauer": 3.0
+  },
+  "clips": [
+    {
+      "datei": "14_Testimonials_Frankfurt_2026-07/Christine Reimer.mp4",
+      "zitat": "Da werden bestimmt nur ganz tolle Leute genommen und Heilpraktiker und Ärzte, aber doch nicht ich. Ich habe ja nicht so viel Ahnung vom Gesundheitswesen, aber ich habe es dann trotzdem gemacht.",
+      "name": "Christine Reimer",
+      "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
+      "rolle": "Der Zweifel – spricht den Einwand fast wörtlich aus"
+    },
+    {
+      "datei": "14_Testimonials_Frankfurt_2026-07/Kris Brückner.mp4",
+      "zitat": "Als ich mit der Ausbildung angefangen habe, muss ich ehrlich sagen, war ich überfordert. … Und ich merke einfach jetzt während der Ausbildung, die ist in so gut verdaubaren Portionen für mich gestückelt, dass ich das unglaublich gut ergreifen kann.",
+      "name": "Christina Brückner",
+      "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
+      "rolle": "Ehrliches „überfordert“ und die Auflösung im selben Interview",
+      "pruefen": "Dateiname „Kris Brückner“, im Interview stellt sie sich als „Christina Brückner, 51“ vor. Wortlaut „ergreifen“ am Ton prüfen (evtl. „begreifen“). Das „…“ überspringt einen Satz über Fachbegriffe."
+    },
+    {
+      "datei": "14_Testimonials_Frankfurt_2026-07/Ute Völker.mp4",
+      "zitat": "Mein Name ist Ute. Ich bin 65 Jahre alt, verkaufe Küchen und Hausgeräte. … Es ist leichter, wie man denkt.",
+      "name": "Ute Völker",
+      "zusatz": "Teilnehmerin der Fach-Coach Ausbildung",
+      "rolle": "Der Schluss: Beruf weit weg von Medizin, Alter der Zielgruppe",
+      "pruefen": "Harter Schnitt nach „Hausgeräte.“ (danach folgt eine Gesundheitsgeschichte, die nicht in die Ad darf). „Es ist leichter, wie man denkt“ liegt etwa 2 Minuten später."
+    }
+  ],
+  "endcard": {
+    "titel": "Ayurveda\nFach-Coach Ausbildung",
+    "untertitel": "mit Dr. Ulrich Bauhofer",
+    "knopf": "Kostenloses Beratungsgespräch",
+    "hinweis": "Jetzt unten auf „Mehr dazu“ tippen",
+    "dauer": 3.5
+  },
+  "stil": {
+    "schrift": "Figtree",
+    "primaer": "#073d3d",
+    "akzent": "#c9734d",
+    "hell": "#fbf9f5",
+    "text_dunkel": "#22302f"
+  },
+  "meta_texte": {
+    "primaertext": "„Da werden bestimmt nur ganz tolle Leute genommen und Heilpraktiker und Ärzte, aber doch nicht ich.“ Das dachte Christine, bevor sie sich für die Ayurveda Fach-Coach Ausbildung entschieden hat. Im Video erzählen drei Teilnehmerinnen, wie sie ihren Einstieg erlebt haben.\n\nSie fragen sich, ob die Ausbildung zu Ihnen passt? Im kostenlosen Beratungsgespräch klären Sie Ihre Fragen persönlich.",
+    "ueberschrift": "Ayurveda Fach-Coach Ausbildung",
+    "beschreibung": "Kostenloses Beratungsgespräch",
+    "cta_knopf": "Mehr dazu",
+    "status": "Entwurf. Zitat wörtlich aus dem Transkript. Vor Freigabe gegen die Landingpage lesen (in dieser Sitzung nicht erreichbar) und Freigabe der drei Teilnehmerinnen für Werbung bestätigen."
+  }
+}

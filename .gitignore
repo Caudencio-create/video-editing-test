@@ -1,0 +1,13 @@
+# Kundenmaterial und Zwischenstände gehören nie ins Repository
+arbeitsordner/
+ausgabe/
+*.mp4
+*.mov
+*.m4v
+*.mxf
+*.wav
+*.m4a
+*.mp3
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,4 @@
+faster-whisper>=1.1
+# OpenCV 4 bringt die Gesichtserkennung mit, OpenCV 5 nicht mehr
+opencv-python-headless>=4.8,<5
+pillow>=10
