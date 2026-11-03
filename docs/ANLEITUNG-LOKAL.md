@@ -88,6 +88,11 @@ plus je ein `_Vorschau.png`. Dauer auf einem normalen Rechner ca. 1–2 min pro 
 - [ ] Ute: harter Schnitt nach „Hausgeräte.“, danach kein Wort mehr hörbar
 - [ ] Untertitel = Gesprochenes, keine Tippfehler, Umlaute korrekt
 - [ ] Hook und Namen gut lesbar, nichts in den unteren 35 % (9:16)
+- [ ] Kein Text auf einem Gesicht. Das Werkzeug setzt Hook und Namen unter das Kinn, wenn oben ein
+      Gesicht ist, und prüft vor jedem Rendern jede Einblendung gegen die erkannten Gesichter
+      (bricht sonst ab). Meldet es „kein Gesicht erkannt“, die Stelle selbst ansehen. Am 03.11.
+      lagen in der ersten Fassung von E12 Hook und alle Namen auf den Köpfen; die Prüfliste hatte
+      nur „Gesicht im Bild“ abgefragt.
 - [ ] Endcard: Text vollständig, Knopf nicht abgeschnitten
 - [ ] Lautstärke der drei Frauen ähnlich
 

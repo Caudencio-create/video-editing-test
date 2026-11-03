@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import shutil
 import statistics
 import sys
@@ -45,6 +46,7 @@ FORMATE = {
 ZOOM_SPRUNG = 1.08          # Heranzoomen bei jedem zweiten Feinschnitt (mehr macht 1080p-Quellen weich)
 ENDCARD_STANDARD = 3.5      # Sekunden
 ZIEL_LUFS_CLIP = -16.0      # je Person vor der Gesamtmischung
+STIRN_UND_HAAR = 0.35       # die Gesichtserkennung rahmt Augenbrauen bis Kinn; so viel (Anteil) kommt oben dazu
 STIL_STANDARD = {"schrift": "Figtree", "primaer": "#073d3d", "akzent": "#c9734d", "hell": "#fbf9f5",
                  "text_dunkel": "#22302f"}
 
@@ -68,14 +70,14 @@ def ass_text(text: str) -> str:
     return text.replace("\\", "").replace("{", "(").replace("}", ")")
 
 
-def gesicht_finden(video: Path, zeitpunkte: list[float], technik: dict) -> tuple[float, float] | None:
-    """Mittelpunkt des größten Gesichts (Anteil von Breite/Höhe), Median über mehrere Bilder."""
+def gesichter_messen(video: Path, zeitpunkte: list[float]) -> list[tuple[float, float, float, float]]:
+    """Größtes Gesicht je Zeitpunkt als (x, y, Breite, Höhe), jeweils Anteil am Originalbild."""
     try:
         import cv2  # optional
     except ImportError:
-        return None
+        return []
     erkenner = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    xs, ys = [], []
+    rahmen = []
     with tempfile.TemporaryDirectory() as tmp:
         for nr, t in enumerate(zeitpunkte):
             bild = Path(tmp) / f"b{nr}.png"
@@ -89,11 +91,17 @@ def gesicht_finden(video: Path, zeitpunkte: list[float], technik: dict) -> tuple
                                                   minSize=(int(breite * 0.05), int(breite * 0.05)))
             if len(gesichter):
                 x, y, w, h = max(gesichter, key=lambda g: g[2] * g[3])
-                xs.append((x + w / 2) / breite)
-                ys.append((y + h / 2) / hoehe)
-    if not xs:
+                rahmen.append((x / breite, y / hoehe, w / breite, h / hoehe))
+    return rahmen
+
+
+def gesicht_finden(video: Path, zeitpunkte: list[float], technik: dict) -> tuple[float, float] | None:
+    """Mittelpunkt des größten Gesichts (Anteil von Breite/Höhe), Median über mehrere Bilder."""
+    rahmen = gesichter_messen(video, zeitpunkte)
+    if not rahmen:
         return None
-    return statistics.median(xs), statistics.median(ys)
+    return (statistics.median(x + w / 2 for x, _, w, _ in rahmen),
+            statistics.median(y + h / 2 for _, y, _, h in rahmen))
 
 
 def lautheit_messen(video: Path, von: float, bis: float) -> float | None:
@@ -111,6 +119,13 @@ def lautheit_messen(video: Path, von: float, bis: float) -> float | None:
 
 def ausschnitt(technik: dict, ziel_b: int, ziel_h: int, fokus: tuple[float, float], zoom: float) -> str:
     """crop-Filter für das Zielformat, zentriert auf den Fokus (Gesicht)."""
+    b, h, x, y = ausschnitt_werte(technik, ziel_b, ziel_h, fokus, zoom)
+    return f"crop={b}:{h}:{x}:{y}"
+
+
+def ausschnitt_werte(technik: dict, ziel_b: int, ziel_h: int, fokus: tuple[float, float],
+                     zoom: float) -> tuple[int, int, int, int]:
+    """Breite, Höhe und linke obere Ecke des Ausschnitts im Originalbild."""
     quell_b, quell_h = technik["breite"], technik["hoehe"]
     ziel_seiten = ziel_b / ziel_h
     if quell_b / quell_h > ziel_seiten:
@@ -125,7 +140,28 @@ def ausschnitt(technik: dict, ziel_b: int, ziel_h: int, fokus: tuple[float, floa
     x = min(max(fx * quell_b - b / 2, 0), quell_b - b)
     # Gesicht im oberen Drittel halten: Fokus liegt 38 % unter der Oberkante des Ausschnitts
     y = min(max(fy * quell_h - h * 0.38, 0), quell_h - h)
-    return f"crop={b}:{h}:{int(x)}:{int(y)}"
+    return b, h, int(x), int(y)
+
+
+def gesicht_im_bild(plan: dict, fmt: dict, von: float, bis: float) -> tuple[float, float, float, float] | None:
+    """Fläche, die die Gesichter zwischen von und bis im Zielformat belegen: links, oben, rechts, unten in
+    Pixeln, Stirn und Haar über dem erkannten Rahmen eingerechnet. None, wenn kein Gesicht erkannt wurde."""
+    flaechen = []
+    for seg in plan["segmente"]:
+        if seg["start"] >= bis or seg["start"] + seg["bis"] - seg["von"] <= von:
+            continue
+        technik = seg["clip"]["technik"]
+        b, h, x, y = ausschnitt_werte(technik, fmt["breite"], fmt["hoehe"], tuple(seg["clip"]["fokus"]), seg["zoom"])
+        s = fmt["hoehe"] / h
+        for fx, fy, fw, fh in seg.get("gesichter", []):
+            oben = (fy * technik["hoehe"] - y) * s
+            unten = ((fy + fh) * technik["hoehe"] - y) * s
+            flaechen.append(((fx * technik["breite"] - x) * s, oben - (unten - oben) * STIRN_UND_HAAR,
+                             ((fx + fw) * technik["breite"] - x) * s, unten))
+    if not flaechen:
+        return None
+    return (min(f[0] for f in flaechen), min(f[1] for f in flaechen),
+            max(f[2] for f in flaechen), max(f[3] for f in flaechen))
 
 
 # ---------------------------------------------------------------- Planung
@@ -177,7 +213,9 @@ def planen(rezept: dict, rezept_pfad: Path) -> dict:
         clip["start"] = t
         for nr, (a, b) in enumerate(clip["teile"]):
             zoom = ZOOM_SPRUNG if (nr % 2 == 1) else 1.0
-            segmente.append({"clip": clip, "von": a, "bis": b, "start": t, "zoom": zoom})
+            # Gesichter je Teil messen: Hook und Namen sollen ihnen ausweichen (siehe ass_datei)
+            gesichter = gesichter_messen(clip["video"], [a + (b - a) * f for f in (0.1, 0.35, 0.65, 0.9)])
+            segmente.append({"clip": clip, "von": a, "bis": b, "start": t, "zoom": zoom, "gesichter": gesichter})
             t += b - a
         clip["ende"] = t
         # Wort-Zeiten auf die Zeitachse legen
@@ -284,13 +322,30 @@ Style: Zusatz,{schrift} Medium,{int(name * 0.78)},{weiss},{weiss},{ass_farbe(sti
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+    from PIL import ImageFont
+    # Unter dieser Linie beginnen die (höchstens zweizeiligen) Untertitel: 2 Zeilen + Kastenrand, gemessen
+    grenze_unten = H * (1 - fmt["ut_unten"]) - 2.6 * ut
+
+    def ohne_gesicht(von: float, bis: float, ueber: float, unter: float) -> int:
+        """Abstand von oben (MarginV) für eine Einblendung, die ueber Pixel darüber und unter Pixel darunter
+        belegt: oben in der Sicherheitszone, außer dort ist ein Gesicht – dann unter dem Kinn."""
+        standard = int(H * fmt["oben"])
+        gesicht = gesicht_im_bild(plan, fmt, von, bis)
+        if gesicht is None or standard + unter <= gesicht[1]:
+            return standard
+        unter_kinn = int(gesicht[3] + H * 0.015 + ueber)
+        return unter_kinn if unter_kinn + unter <= grenze_unten else standard
+
     zeilen = []
     hook_ende = 0.0
     if rezept.get("hook", {}).get("text"):
         hook_ende = min(rezept["hook"].get("dauer", 3.0), plan["clips"][0]["ende"])
-        zeilen.append(f"Dialogue: 2,{ass_zeit(0)},{ass_zeit(hook_ende)},Hook,,0,0,0,,"
+        hook_schrift = ImageFont.truetype(str(SCHRIFTEN / "Figtree-ExtraBold.ttf"), hook)
+        anzahl = zeilenzahl(rezept["hook"]["text"], hook_schrift.getlength, B - 2 * rand)
+        rahmen = int(hook * 0.28)
+        abstand = ohne_gesicht(0.0, hook_ende, rahmen, anzahl * hook * 1.05 + rahmen)
+        zeilen.append(f"Dialogue: 2,{ass_zeit(0)},{ass_zeit(hook_ende)},Hook,,0,0,{abstand},,"
                       f"{{\\fad(120,200)}}{ass_text(rezept['hook']['text'])}")
-    from PIL import ImageFont
     ut_schrift = ImageFont.truetype(str(SCHRIFTEN / "Figtree-ExtraBold.ttf"), ut)
     max_px = B - 2 * rand - 2 * int(ut * 0.22)
 
@@ -305,12 +360,66 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start = max(clip["start"] + 0.3, hook_ende + 0.15)
             ende = min(clip["ende"] - 0.25, start + 3.2)
             if ende - start >= 1.2:
-                zeilen.append(f"Dialogue: 3,{ass_zeit(start)},{ass_zeit(ende)},Name,,0,0,0,,"
+                # Name und Zusatz zusammen: Name-Kasten oben, Zusatz 1,75 Schriftgrößen darunter
+                abstand = ohne_gesicht(start, ende, int(name * 0.30), name * 2.8)
+                zeilen.append(f"Dialogue: 3,{ass_zeit(start)},{ass_zeit(ende)},Name,,0,0,{abstand},,"
                               f"{{\\fad(180,180)}}{ass_text(clip['name'])}")
                 if clip["zusatz"]:
-                    zeilen.append(f"Dialogue: 3,{ass_zeit(start + 0.12)},{ass_zeit(ende)},Zusatz,,0,0,0,,"
-                                  f"{{\\fad(180,180)}}{ass_text(clip['zusatz'])}")
+                    zeilen.append(f"Dialogue: 3,{ass_zeit(start + 0.12)},{ass_zeit(ende)},Zusatz,,0,0,"
+                                  f"{abstand + int(name * 1.75)},,{{\\fad(180,180)}}{ass_text(clip['zusatz'])}")
     return kopf + "\n".join(zeilen) + "\n"
+
+
+def zeilenzahl(text: str, textbreite, max_px: float) -> int:
+    """Wie viele Zeilen ein Text bei Umbruch an Wortgrenzen braucht."""
+    anzahl, zeile = 1, ""
+    for wort in text.split():
+        probe = f"{zeile} {wort}".strip()
+        if zeile and textbreite(probe) > max_px:
+            anzahl, zeile = anzahl + 1, wort
+        else:
+            zeile = probe
+    return anzahl
+
+
+def ass_sekunden(wert: str) -> float:
+    h, m, s = wert.split(":")
+    return int(h) * 3600 + int(m) * 60 + float(s)
+
+
+def einblendungen_pruefen(ass: str, plan: dict, fmt: dict, arbeitsordner: Path) -> tuple[list[str], list[str]]:
+    """Hook, Namen und Zusatz einzeln auf eine Prüffarbe rendern und messen, ob ein Kasten ein Gesicht berührt.
+    Ergebnis: (Einblendungen auf einem Gesicht, Einblendungen, bei denen kein Gesicht erkannt wurde)."""
+    import subprocess
+    from PIL import Image, ImageChops
+
+    B, H = fmt["breite"], fmt["hoehe"]
+    kopf, _, ereignisse = ass.partition("[Events]")
+    format_zeile = "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    auf_gesicht, ungeprueft = [], []
+    for zeile in ereignisse.splitlines():
+        if not zeile.startswith("Dialogue:") or ",Untertitel," in zeile:
+            continue
+        felder = zeile.split(",", 9)
+        von, bis, art = ass_sekunden(felder[1]), ass_sekunden(felder[2]), felder[3]
+        text = re.sub(r"\{[^}]*\}", "", felder[9]).replace("\\N", " ")
+        gesicht = gesicht_im_bild(plan, fmt, von, bis)
+        if gesicht is None:
+            ungeprueft.append(f"{art} „{text}“ ({zeit(von)}–{zeit(bis)}): kein Gesicht erkannt, von Hand prüfen")
+            continue
+        (arbeitsordner / "pruefung.ass").write_text(kopf + format_zeile + zeile + "\n", encoding="utf-8")
+        subprocess.run([ffmpeg(), "-v", "error", "-y", "-f", "lavfi", "-i",
+                        f"color=c=0xFF00FF:s={B}x{H}:r=24:d={bis + 1:.2f}", "-vf",
+                        "subtitles=pruefung.ass:fontsdir=schriften", "-ss", f"{(von + bis) / 2:.2f}",
+                        "-frames:v", "1", "pruefung.png"], cwd=arbeitsordner, capture_output=True)
+        bild = Image.open(arbeitsordner / "pruefung.png").convert("RGB")
+        abweichung = ImageChops.difference(bild, Image.new("RGB", bild.size, (255, 0, 255))).convert("L")
+        kasten = abweichung.point(lambda v: 255 if v > 40 else 0).getbbox()
+        if kasten and kasten[0] < gesicht[2] and gesicht[0] < kasten[2] and kasten[1] < gesicht[3] \
+                and gesicht[1] < kasten[3]:
+            auf_gesicht.append(f"{art} „{text}“ ({zeit(von)}–{zeit(bis)}): Text {kasten[1]}–{kasten[3]} px, "
+                               f"Gesicht {gesicht[1]:.0f}–{gesicht[3]:.0f} px von oben")
+    return auf_gesicht, ungeprueft
 
 
 def endcard_bild(ziel: Path, fmt: dict, stil: dict, endcard: dict) -> None:
@@ -392,7 +501,8 @@ def endcard_bild(ziel: Path, fmt: dict, stil: dict, endcard: dict) -> None:
 
 # ---------------------------------------------------------------- Rendern
 
-def rendern(plan: dict, rezept: dict, format_name: str, ziel: Path, arbeitsordner: Path) -> None:
+def rendern(plan: dict, rezept: dict, format_name: str, ziel: Path, arbeitsordner: Path,
+            trotz_gesicht: bool = False) -> None:
     fmt = FORMATE[format_name]
     stil = {**STIL_STANDARD, **rezept.get("stil", {})}
     B, H = fmt["breite"], fmt["hoehe"]
@@ -401,9 +511,20 @@ def rendern(plan: dict, rezept: dict, format_name: str, ziel: Path, arbeitsordne
     e_dauer = endcard.get("dauer", ENDCARD_STANDARD) if endcard else 0.0
     T = plan["dauer_clips"]
 
-    (arbeitsordner / "untertitel.ass").write_text(ass_datei(plan, rezept, fmt, stil), encoding="utf-8")
+    ass = ass_datei(plan, rezept, fmt, stil)
+    (arbeitsordner / "untertitel.ass").write_text(ass, encoding="utf-8")
     schriftordner = arbeitsordner / "schriften"
     shutil.copytree(SCHRIFTEN, schriftordner, dirs_exist_ok=True)
+
+    # Vor dem Rendern: liegt ein Hook oder Name auf einem Gesicht?
+    auf_gesicht, ungeprueft = einblendungen_pruefen(ass, plan, fmt, arbeitsordner)
+    for hinweis in ungeprueft:
+        print(f"   Hinweis: {hinweis}")
+    if auf_gesicht:
+        print("   Text auf einem Gesicht:\n    - " + "\n    - ".join(auf_gesicht))
+        if not trotz_gesicht:
+            sys.exit("Abbruch. Im Rezept beim Clip den Bildausschnitt (fokus) ändern "
+                     "oder bewusst mit --trotz-gesicht rendern.")
 
     eingaben, filter_teile, paare = [], [], []
     for k, seg in enumerate(plan["segmente"]):
@@ -515,6 +636,7 @@ def main() -> None:
     parser.add_argument("--ausgabe", default=str(AUSGABE))
     parser.add_argument("--nur-planen", action="store_true", help="nur Zitate suchen und Schnittliste schreiben")
     parser.add_argument("--trotz-regelwerk", action="store_true", help="trotz Regelwerk-Treffern rendern")
+    parser.add_argument("--trotz-gesicht", action="store_true", help="auch rendern, wenn Text auf einem Gesicht liegt")
     parser.add_argument("--quellordner", help="Ordner mit dem Videomaterial (überschreibt das Rezept)")
     parser.add_argument("--nur-hook", type=int, help="nur diese Hook-Variante rendern (1, 2, …)")
     args = parser.parse_args()
@@ -558,7 +680,7 @@ def main() -> None:
             arbeitsordner = ARBEIT / "render" / f"{kennung}_{format_name}"
             arbeitsordner.mkdir(parents=True, exist_ok=True)
             print(f"Rendere {ziel.name} (Hook: {hook_text}) …", flush=True)
-            rendern(plan, fassung, format_name, ziel, arbeitsordner)
+            rendern(plan, fassung, format_name, ziel, arbeitsordner, args.trotz_gesicht)
             vorschau(ziel, plan, fassung, ziel.with_name(ziel.stem + "_Vorschau.png"))
             technik = vermessen(ziel)
             print(f"   fertig: {technik['breite']}x{technik['hoehe']}, {technik['dauer']:.1f} s, "
