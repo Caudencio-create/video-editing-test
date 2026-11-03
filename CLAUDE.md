@@ -30,6 +30,11 @@ mit dem Material), dann `docs/ERGEBNIS-TESTLAUF-2026-11-03.md` (was schon geklä
    Beratungsgespräch, Meta-Knopf „Mehr dazu“.
 9. **Messen statt behaupten.** „Fertig“ heißt: gerendert, Vorschaubild angesehen, Schnittliste
    gelesen, Lautheit −14 LUFS. Was nicht geprüft werden konnte, ehrlich so sagen.
+10. **Immer den Link mitgeben.** Alles, was Luciano ansehen oder prüfen soll (Video, Ordner, Datei,
+    Liste), bekommt genau an dieser Stelle einen klickbaren Link, bei Drive-Dateien den Drive-Link
+    (über den Drive-Konnektor nach dem Dateinamen suchen; frisch abgelegte Dateien tauchen dort erst
+    nach ein paar Minuten auf). Keine Ordnerpfade zum Selbstsuchen. Kurz und ohne Fachbegriffe
+    erklären, so dass jemand folgen kann, der nicht dabei war.
 
 ## Grenze der Cloud-Sitzung (Stand 03.11.2026)
 
